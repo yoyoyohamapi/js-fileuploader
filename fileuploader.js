@@ -33,7 +33,8 @@
      * @param files {Array} 待添加文件序列
      */
     function _appendFiles(src, files) {
-        console.log(src);
+        var totalSize = 0;
+
         outer:
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
@@ -50,17 +51,20 @@
                 status: STATUS_WAIT, // 初始状态为 "等待上传"
                 hash: hash
             });
+            // 刷新总文件大小
+            totalSize += file.size;
         }
-        console.log(src);
-
+        return totalSize;
     }
 
     // PolyFill bind
     if (typeof(Function.prototype.bind) !== 'function') {
         Function.prototype.bind = function (scope) {
-            var args = Array.prototype.slice.call(arguments, 0);
+            var args = Array.prototype.slice.call(arguments, 1);
             var func = this;
-            return func.apply(scope, args);
+            return function(){
+                func.apply(scope, args.concat(Array.prototype.slice.call(arguments)));
+            }
         }
     }
 
@@ -114,9 +118,14 @@
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && (xhr.status < 300 || xhr.status === 302)) {
+                    ++succeed;
                     // 是否需要回调进度显示
                     if (fileInfo.progressEach && typeof(fileInfo.progressEach) === 'function') {
                         fileInfo.progressEach(succeed, sharedCount);
+                    }
+                    // 如果上传完成, 标识状态
+                    if(succeed === sharedCount) {
+                        file.status = STATUS_FINISHED;
                     }
                 } else if (xhr.status > 300 && xhr.status !== 302) {
                     if (typeof(fileInfo.error) === 'function') {
@@ -161,10 +170,13 @@
         this.input = input;
         // 当前文件队列
         this.files = [];
-
+        // 当前正在上传文件
+        this.current = null;
+        // 总的文件大小
+        this.totalSize = 0;
         // 文件域监听
         this.input.addEventListener('change', function (e) {
-            _appendFiles(this.files, e.target.files);
+            this.totalSize = _appendFiles(this.files, e.target.files);
             // 刷新文件列表
             if(this.config.refresh && typeof(this.config.refresh) === 'function') {
                 this.config.refresh();
@@ -179,10 +191,11 @@
      * @param error {function}
      */
     FileUploader.prototype.upload = function (success, error) {
-        for (var i = 0, length = this.files.length; i < files; i++) {
+        for (var i = 0, length = this.files.length; i < length; i++) {
             var file = this.files[i];
             // 只有等待上传的文件才能进行上传
             if (file.status === STATUS_WAIT) {
+                file.status = STATUS_PENDING;
                 _sendFile({
                     name: file.name,
                     size: file.size,
@@ -205,7 +218,7 @@
      * 暂停上传
      *
      */
-    FileUploader.prototype.pause = function () {
+    FileUploader.prototype.pause = function (file) {
 
     };
 
@@ -213,11 +226,14 @@
      * 继续上传文件
      *
      */
-    FileUploader.prototype.resume = function () {
-
+    FileUploader.prototype.resume = function (file) {
+        //从当前文件开始上传
     };
 
-    FileUploader.prototype.remove = function () {
+
+
+    FileUploader.prototype.remove = function (file) {
+        // 删除某个文件
 
     };
 
