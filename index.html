@@ -22,6 +22,10 @@
                 url: 'http://localhost:8080/uploader.php',
                 // 分片大小
                 sharedSize: '2000',
+                // 当前文件列表变动时
+                refresh: function(newFiles) {
+
+                },
                 // 每个文件的上传进度
                 progressEach: function(index, total) {
 

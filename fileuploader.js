@@ -165,6 +165,10 @@
         // 文件域监听
         this.input.addEventListener('change', function (e) {
             _appendFiles(this.files, e.target.files);
+            // 刷新文件列表
+            if(this.config.refresh && typeof(this.config.refresh) === 'function') {
+                this.config.refresh();
+            }
         }.bind(this));
     }
 
