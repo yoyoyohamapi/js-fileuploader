@@ -1,4 +1,4 @@
-files/*
-shareds/*
+demo/files/*
+demo/shareds/*
 
 .idea/

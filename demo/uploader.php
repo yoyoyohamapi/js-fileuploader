@@ -11,7 +11,28 @@ const UPLOAD_DIR = './files/';
 // 设置分片保存路径
 const SHAREDS_BASE_DIR = './shareds/';
 
-$sharedDir = SHAREDS_BASE_DIR.$_POST['name'];
+$sharedDir = SHAREDS_BASE_DIR.$_POST['hash'];
+
+// 如果是合并请求
+if($_POST['hash'] && !$_FILES) {
+    // 设置合并文件名
+    $uploadFile = UPLOAD_DIR.basename($_POST['hash']);
+    // 如果已经合并的文件已经存在了,删除,防止合并错误
+    if(file_exists($uploadFile)) {
+        unlink($uploadFile);
+    }
+    // 遍历分片文件夹下的文件
+    for ($i = 1, $total = $_POST['count']; $i <= $total; $i++) {
+        $sharedFile = $sharedDir."/$i";
+        if (!file_put_contents($uploadFile, file_get_contents($sharedFile), FILE_APPEND)) {
+            header("HTTP/1.0 500 INTERNAL ERROR");
+            echo json_encode('error');
+        }
+    }
+    header('HTTP/1.0 200 OK');
+    return  json_encode('ok');
+}
+
 
 if (!file_exists($sharedDir)) {
     mkdir($sharedDir);
@@ -39,23 +60,10 @@ try {
     if (!move_uploaded_file($_FILES['data']['tmp_name'], $sharedName)) {
         throw new RuntimeException('File is invalid');
     };
-
-    // 如果分片上传完毕, 则合并文件
-    if ($_POST['index'] == $_POST['count']) {
-        // 设置合并文件名
-        $uploadFile = UPLOAD_DIR.basename($_POST['name']);
-        // 遍历分片文件夹下的文件
-        for ($i = 1, $total = $_POST['count']; $i <= $total; $i++) {
-            $sharedFile = $sharedDir."/$i";
-            if (!file_put_contents($uploadFile, file_get_contents($sharedFile), FILE_APPEND)) {
-                header("HTTP/1.0 500 INTERNAL ERROR");
-                echo json_encode('error');
-            }
-        }
-    }
-
+    header('HTTP/1.0 204 CREATED');
+    return json_encode('ok');
 } catch (Exception $e) {
     header("HTTP/1.0 500 INTERNAL ERROR");
-    echo json_encode($e);
+    return  json_encode($e);
 }
 ?>

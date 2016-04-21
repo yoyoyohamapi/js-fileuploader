@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>php文件分片上传示例</title>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="semantic/semantic.min.js"></script>
+    <link href="semantic/semantic.min.css" type="text/css" rel="stylesheet"/>
+</head>
+
+<body>
+<style>
+
+</style>
+<div class="ui stacked segments" style="width: 500px;margin:50px auto">
+    <div class="ui green segment">
+        <h1 class="ui centered header">文件分片上传</h1>
+    </div>
+    <div class="ui segment" style="height: 500px;overflow-y:scroll ">
+        <!-- 文件列表 -->
+        <div id="fileList" class="ui relaxed divided list">
+        </div>
+    </div>
+
+    <!-- 操作部分 -->
+    <div class="ui secondary segment">
+        <button id="append" class="ui blue basic button">添加文件</button>
+        <div class="ui right floated buttons">
+            <button id="start" type="button" class="ui green button">开始</button>
+            <div class="or"></div>
+            <button id="pause" type="button" class="ui red button">暂停</button>
+        </div>
+
+        <!-- 总体进度 -->
+        <div class="ui bottom attached large red progress" id="totalProgress" data-value="0" data-total="0">
+            <div class="bar"></div>
+        </div>
+    </div>
+
+    <!-- 文件表单 -->
+    <form method="POST" class="ui form">
+        <div class="field" style="display: none">
+            <input type="file" name="file" id="file" multiple="multiple"/>
+        </div>
+
+    </form>
+</div>
+<script type="text/javascript" src="../fileuploader.js"></script>
+<script type="text/javascript">
+
+    // 文件列表
+    var $fileList = document.getElementById("fileList");
+    // 总文件进度
+    var $totalProgress = document.getElementById('totalProgress');
+
+    var loader = new FileUploader({
+        // 输入框选择器，CSS Selector
+        selector: '#file',
+        // 指定分片处理程序
+        url: 'http://localhost:8080/uploader.php',
+        // 分片大小
+        sharedSize: 4*1024*1024,
+        // 当前文件列表变动时
+        refresh: function (info) {
+            var newFiles = info.newFiles;
+            // 利用Fragment提升DOM插入性能
+            var $fragment = document.createDocumentFragment();
+            // 刷新文件列表
+            for (var i = 0, length = newFiles.length; i < length; i++) {
+                var file = newFiles[i];
+                var $item = document.createElement("div");
+                $item.className = "item";
+                $item.innerHTML =
+                        '<div class="ui large blue  progress" '
+                        + ' data-total="' + file.sharedCount + '" data-value="' + file.succeed + '" data-index="' + file.index + '">'
+                        + '<div class="bar">'
+                        + '<div class="progress"></div>'
+                        + '</div>'
+                        + '<div class="label">' + file.file.name + '</div>'
+                        + '</div>';
+                $fragment.appendChild($item);
+            }
+            $fileList.appendChild($fragment);
+
+            // 刷新总文件大小
+            var totalSize = parseInt($totalProgress.getAttribute("data-total"))+info.totalSize;
+            $totalProgress.setAttribute('data-total', totalSize);
+        },
+        // 每个文件的上传进度
+        progressEach: function (index, total,file) {
+            $('.progress[data-index="'+file.index+'"]').progress('increment');
+        },
+        // 文件队列的上传进度
+        progressAll: function (completed, total) {
+            var percent = Math.round(completed*100/total);
+            $('#totalProgress').progress({
+                percent: percent>100?100:percent
+            });
+        },
+        // 全部上传成功以后的回调
+        success: function () {
+            alert("全部上传成功");
+        },
+        // 某个文件上传失败的回调
+        error: function (file) {
+            alert(file.file.name + "上传错误");
+        }
+    });
+
+    var appendBtn = document.getElementById("append"),// 追加按钮
+            startBtn = document.getElementById("start"),
+            pauseBtn = document.getElementById("pause");
+
+    // 代理追加按钮到打开文件
+    appendBtn.addEventListener('click', function () {
+        document.getElementById('file').click();
+    });
+
+    startBtn.addEventListener('click', function () {
+        loader.start();
+    });
+
+    pauseBtn.addEventListener('click', function () {
+        loader.pause();
+    });
+
+</script>
+</body>
+</html>
