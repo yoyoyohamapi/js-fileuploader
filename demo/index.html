@@ -26,9 +26,9 @@
     <div class="ui secondary segment">
         <button id="append" class="ui blue basic button">添加文件</button>
         <div class="ui right floated buttons">
-            <button id="start" type="button" class="ui green button">开始</button>
+            <button id="start" type="button" class="ui green button" disabled="disabled">开始</button>
             <div class="or"></div>
-            <button id="pause" type="button" class="ui red button">暂停</button>
+            <button id="pause" type="button" class="ui red button" disabled="disabled">暂停</button>
         </div>
 
         <!-- 总体进度 -->
@@ -48,18 +48,30 @@
 <script type="text/javascript" src="../fileuploader.js"></script>
 <script type="text/javascript">
 
+
     // 文件列表
-    var $fileList = document.getElementById("fileList");
-    // 总文件进度
-    var $totalProgress = document.getElementById('totalProgress');
+    var $fileList = document.getElementById("fileList"),
+            // 总文件进度
+            $totalProgress = document.getElementById('totalProgress'),
+            appendBtn = document.getElementById("append"),// 追加按钮
+            startBtn = document.getElementById("start"),
+            pauseBtn = document.getElementById("pause");
+
+    function toggleButton(button) {
+        if(button.getAttribute("disabled")) {
+            button.removeAttribute("disabled");
+        } else {
+            button.setAttribute("disabled", "disabled");
+        }
+    }
 
     var loader = new FileUploader({
         // 输入框选择器，CSS Selector
         selector: '#file',
         // 指定分片处理程序
-        url: 'http://localhost:8080/uploader.php',
+        url: 'http://localhost:8080/demo/uploader.php',
         // 分片大小
-        sharedSize: 4*1024*1024,
+        sharedSize: 4 * 1024 * 1024,
         // 当前文件列表变动时
         refresh: function (info) {
             var newFiles = info.newFiles;
@@ -83,33 +95,42 @@
             $fileList.appendChild($fragment);
 
             // 刷新总文件大小
-            var totalSize = parseInt($totalProgress.getAttribute("data-total"))+info.totalSize;
+            var totalSize = parseInt($totalProgress.getAttribute("data-total")) + info.totalSize;
             $totalProgress.setAttribute('data-total', totalSize);
+            // 可以开始
+            startBtn.removeAttribute("disabled");
         },
         // 每个文件的上传进度
-        progressEach: function (index, total,file) {
-            $('.progress[data-index="'+file.index+'"]').progress('increment');
+        progressEach: function (index, total, file) {
+            $('.progress[data-index="' + file.index + '"]').progress('increment');
         },
         // 文件队列的上传进度
         progressAll: function (completed, total) {
-            var percent = Math.round(completed*100/total);
+            var percent = Math.round(completed * 100 / total);
             $('#totalProgress').progress({
-                percent: percent>100?100:percent
+                percent: percent > 100 ? 100 : percent
             });
         },
         // 全部上传成功以后的回调
-        success: function () {
-            alert("全部上传成功");
+        success: function (file) {
+           console.log(file.file.name+"上传成功");
         },
         // 某个文件上传失败的回调
-        error: function (file) {
-            alert(file.file.name + "上传错误");
+        error: function (shared, file) {
+            console.log(file.file.name + "上传错误. 错误片数:" + shared);
+        },
+        // 暂停之后的的回调
+        onPause: function () {
+            toggleButton(pauseBtn);
+            toggleButton(startBtn);
+        },
+        // 开始之后的回调
+        onStart: function () {
+            toggleButton(startBtn);
+            toggleButton(pauseBtn);
         }
     });
 
-    var appendBtn = document.getElementById("append"),// 追加按钮
-            startBtn = document.getElementById("start"),
-            pauseBtn = document.getElementById("pause");
 
     // 代理追加按钮到打开文件
     appendBtn.addEventListener('click', function () {

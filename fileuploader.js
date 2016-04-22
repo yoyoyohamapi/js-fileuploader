@@ -127,6 +127,11 @@
     FileUploader.prototype.start = function () {
         this._pausing = false;
         this._send();
+        // 开始以后的回调
+        var onStart = this.config.onStart;
+        if (isFunction(onStart)) {
+            onStart();
+        }
     };
 
     /**
@@ -147,9 +152,9 @@
                 }
             }
         }
-        if (current){
+        if (current) {
             // 如果分片已经发送完毕
-            if(current.succeed === current.sharedCount)
+            if (current.succeed === current.sharedCount)
                 this._sendMerge(current);
             else
                 this._sendFile(current);
@@ -163,7 +168,7 @@
      * @param sharedCount {int}
      * @private
      */
-    FileUploader.prototype._createRequest = function (file,sharedSize, sharedCount) {
+    FileUploader.prototype._createRequest = function (file, sharedSize, sharedCount) {
         var self = this,
             progressEach = this.config.progressEach,
             progressAll = this.config.progressAll,
@@ -173,19 +178,20 @@
         var xhr = new XMLHttpRequest();
         // 设置xhr的错误回调
         xhr.onreadystatechange = function () {
-            // 请求刚刚初始化完成
+            // 请求刚刚初始化完成, 如若此时为暂停发送态, 我们需要阻止其发送
             if (this.readyState === 0) {
-                if(self._pausing) {
+                if (self._pausing) {
                     this.abort();
                 }
             }
-            else if (this.readyState === 4 && (this.status < 300 || this.status === 302)) {
+            else if (this.readyState === 4 && (this.status >= 200 && this.status < 300 || this.status === 302)) {
                 // 更新当前文件的完成情况
                 ++file.succeed;
-                // 更新总体进度完成情况
-                self.completedSize += Math.min(
-                    file.file.size - file.succeed * sharedSize,
-                    sharedSize);
+                // 更新总体进度完成情况, 如果当前正在传送最后一片,需要单独考虑
+                if (file.succeed === sharedCount)
+                    self.completedSize += file.file.size - (sharedCount - 1) * sharedSize;
+                else
+                    self.completedSize += sharedSize;
                 // 是否需要回调进度显示,
                 if (isFunction(progressEach) && file.succeed !== sharedCount) {
                     progressEach(file.succeed, sharedCount, file);
@@ -200,11 +206,13 @@
                     // 发送一个合并请求
                     self._sendMerge(file);
                 }
-            } else if (this.readyState === 4 && this.status > 300 && this.status !== 302) {
+            } else if (this.readyState === 4 && (this.status >= 300 && this.status !== 302 || this.status === 0 )) {
                 // 标识当前文件为等待上传
                 file.status = STATUS_WAIT;
+                this.abort();
                 if (isFunction(error)) {
-                    error(file);
+                    // 错误函数提供两个参数, 错误片及文件
+                    error(shared, file);
                 }
             }
         }.bind(xhr);
@@ -225,7 +233,7 @@
      */
     FileUploader.prototype._sendFile = function (file) {
         // 如果正在暂停中, 不予发送,这里加一个判断是想尽早结束发送意愿
-        if(this._pausing)
+        if (this._pausing)
             return;
         var sharedSize = this.config.sharedSize,
             sharedCount = file.sharedCount;
@@ -252,13 +260,14 @@
      * @private
      */
     FileUploader.prototype._sendMerge = function (file) {
-        if(this._pausing)
+        if (this._pausing)
             return;
         var url = this.config.mergeUrl || this.config.url,
             hash = file.hash,
             count = file.sharedCount,
             progressEach = this.config.progressEach,
             progressAll = this.config.progressAll,
+            success = this.config.success,
             error = this.config.error,
             self = this;
         var xhr = new XMLHttpRequest();
@@ -274,6 +283,9 @@
                 file.status = STATUS_FINISHED;
                 // 当前待上传文件移位
                 self.current = self.files[file.index + 1];
+                // 标识当前文件已完成
+                if(isFunction(success))
+                    success(file);
                 // 发送下一个文件
                 self._send();
             } else if (this.readyState === 4 && this.status > 300 && this.status !== 302) {
@@ -350,15 +362,19 @@
      *
      */
     FileUploader.prototype.pause = function () {
-       this._pausing = true;
+        this._pausing = true;
+        var onPause = this.config.onPause;
+        if (isFunction(onPause)) {
+            // 暂停回调提供一个当前暂停的文件
+            onPause(this.current);
+        }
     };
 
     /**
      * 继续上传文件
      */
     FileUploader.prototype.resume = function () {
-        this._pausing = false;
-        this._send();
+        this.start();
     };
 
     FileUploader.prototype.remove = function (file, callback) {
