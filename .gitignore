@@ -1,4 +1,5 @@
 demo/files/*
 demo/shareds/*
 
+.DS_STORE
 .idea/
