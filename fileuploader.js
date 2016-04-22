@@ -241,7 +241,7 @@
         formData.append('count', sharedCount); // 总片数
         formData.append('data', ''); // 发送的文件
         formData.append('index', ''); // 当前是第几片
-        for (var i = file.succeed; i < sharedCount; i++) {
+        for (var i = 0; i < sharedCount; i++) {
             // 设置分片的起始和结束
             var start = i * sharedSize;
             var end = Math.min(file.file.size, start + sharedSize);
