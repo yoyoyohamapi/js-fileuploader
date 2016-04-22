@@ -6,12 +6,17 @@
     <script type="text/javascript" src="js/jquery.min.js"></script>
     <script type="text/javascript" src="semantic/semantic.min.js"></script>
     <link href="semantic/semantic.min.css" type="text/css" rel="stylesheet"/>
+    <style>
+        .remover {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+        }
+    </style>
 </head>
 
 <body>
-<style>
 
-</style>
 <div class="ui stacked segments" style="width: 500px;margin:50px auto">
     <div class="ui green segment">
         <h1 class="ui centered header">文件分片上传</h1>
@@ -51,14 +56,14 @@
 
     // 文件列表
     var $fileList = document.getElementById("fileList"),
-            // 总文件进度
+    // 总文件进度
             $totalProgress = document.getElementById('totalProgress'),
             appendBtn = document.getElementById("append"),// 追加按钮
             startBtn = document.getElementById("start"),
             pauseBtn = document.getElementById("pause");
 
     function toggleButton(button) {
-        if(button.getAttribute("disabled")) {
+        if (button.getAttribute("disabled")) {
             button.removeAttribute("disabled");
         } else {
             button.setAttribute("disabled", "disabled");
@@ -73,7 +78,7 @@
         // 分片大小
         sharedSize: 4 * 1024 * 1024,
         // 当前文件列表变动时
-        refresh: function (info) {
+        onAppend: function (info) {
             var newFiles = info.newFiles;
             // 利用Fragment提升DOM插入性能
             var $fragment = document.createDocumentFragment();
@@ -82,16 +87,24 @@
                 var file = newFiles[i];
                 var $item = document.createElement("div");
                 $item.className = "item";
+                $item.setAttribute("id", 'file' + file.index);
                 $item.innerHTML =
                         '<div class="ui large blue  progress" '
-                        + ' data-total="' + file.sharedCount + '" data-value="' + file.succeed + '" data-index="' + file.index + '">'
+                        + ' data-total="' + file.sharedCount + '" data-value="' + file.succeed + '">'
                         + '<div class="bar">'
                         + '<div class="progress"></div>'
                         + '</div>'
                         + '<div class="label">' + file.file.name + '</div>'
+                        + '<button class="remover ui circular red icon button"> <i class="remove icon"></i> </button>'
                         + '</div>';
                 $fragment.appendChild($item);
+                (function (index) {
+                    $item.querySelector(".remover").addEventListener('click', function () {
+                        loader.remove(index);
+                    })
+                })(file.index);
             }
+
             $fileList.appendChild($fragment);
 
             // 刷新总文件大小
@@ -102,7 +115,7 @@
         },
         // 每个文件的上传进度
         progressEach: function (index, total, file) {
-            $('.progress[data-index="' + file.index + '"]').progress('increment');
+            $("#file" + file.index).find(".progress").progress('increment');
         },
         // 文件队列的上传进度
         progressAll: function (completed, total) {
@@ -113,11 +126,11 @@
         },
         // 全部上传成功以后的回调
         success: function (file) {
-           console.log(file.file.name+"上传成功");
+            console.log(file.file.name + "上传成功");
         },
         // 某个文件上传失败的回调
-        error: function (shared, file) {
-            console.log(file.file.name + "上传错误. 错误片数:" + shared);
+        error: function (file) {
+            console.log(file.file.name + "上传错误");
         },
         // 暂停之后的的回调
         onPause: function () {
@@ -128,6 +141,14 @@
         onStart: function () {
             toggleButton(startBtn);
             toggleButton(pauseBtn);
+        },
+        onRemove: function (file) {
+            // 删除列表元素
+            var $item = document.getElementById("file" + file.index);
+            var $parent = $item.parentNode;
+            $parent.removeChild($item);
+            var totalSize = $totalProgress.getAttribute('data-total') - file.size;
+            $totalProgress.setAttribute('data-total', totalSize);
         }
     });
 
